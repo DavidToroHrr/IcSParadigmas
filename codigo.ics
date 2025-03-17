@@ -5,14 +5,21 @@ Main {
     <w> "Ingrese dos números enteros:";
     <r> a;
     <r> b;
+    <w> "Este es el primer numero:";
+    <w> a;
 
-    c := a + b;
+    c := a * b;
+    <w> "Este es el valor de c:";
+    <w> c;
+    contador := 1;
 
     If c > 10 ::
         <w> "La suma es mayor que 10";
-        [:] { D D E F G A B C# D# F# G# A# };
+        [:] { D D E F G A B C# D# F# G# A# A };
     else ::
         <w> "La suma es 10 o menor";
-        [:] { D D D D };  
-   
+        [:] { D D D D }; 
+        While contador <= 5 ::
+            <w> contador;
+            contador := contador + 1;
 }
