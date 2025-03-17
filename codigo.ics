@@ -1,0 +1,18 @@
+*** Un programa IcS ***
+Main {
+    <w> "Bienvenido al intérprete IcS";
+
+    <w> "Ingrese dos números enteros:";
+    <r> a;
+    <r> b;
+
+    c := a + b;
+
+    If c > 10 ::
+        <w> "La suma es mayor que 10";
+        [:] { C C C C };
+    else ::
+        <w> "La suma es 10 o menor";
+        [:] { D D D D };  
+   
+}

@@ -1,136 +1,143 @@
-import tkinter as tk
-from tkinter import messagebox, ttk
-import winsound
-from midiutil import MIDIFile
+import sys
+from antlr4 import *
+from IcSLexer import IcSLexer
+from IcSParser import IcSParser
+from IcSVisitor import IcSVisitor
+from midiutil import MIDIFile  # Importar la librería MIDIUtil
 
-# 🎵 Mapeo de notas a MIDI
-NOTE_MAPPING = {
-    'C': 60, 'C#': 61, 'D': 62, 'D#': 63, 'E': 64, 'F': 65, 'F#': 66,
-    'G': 67, 'G#': 68, 'A': 69, 'A#': 70, 'B': 71
-}
 
-class VirtualPianoApp:
-    def __init__(self, root):
-        self.root = root
-        self.root.title("🎼 Teclado Virtual - Generador MIDI")
-        self.root.geometry("500x450")
-        self.root.configure(bg="#282c34")
+class IcSInterpreter(IcSVisitor):
+    def __init__(self):
+        self.variables = {}
 
-        # 🏷 Título
-        tk.Label(root, text="🎶 Selecciona notas musicales:", font=("Arial", 14, "bold"), fg="white", bg="#282c34").pack(pady=10)
+    def visitMusicStmt(self, ctx: IcSParser.MusicStmtContext):
+            notas = [nota.getText().upper() for nota in ctx.ID()]  # Convertir a mayúsculas
+            print(f"DEBUG: Reproduciendo música con notas: {notas}")
 
-        # 🎹 Campo de notas (Deshabilitado para entrada manual)
-        self.note_display = tk.Entry(root, font=("Arial", 12), width=40, bg="white", fg="black", justify="center", state="disabled")
-        self.note_display.pack(pady=5)
+            # 🎵 Mapeo de notas a MIDI
+            NOTE_MAPPING = {
+                'C': 60, 'C#': 61, 'D': 62, 'D#': 63, 'E': 64, 'F': 65, 'F#': 66,
+                'G': 67, 'G#': 68, 'A': 69, 'A#': 70, 'B': 71
+            }
 
-        # 🎼 Teclado Virtual
-        self.create_virtual_keyboard()
+            # Crear archivo MIDI
+            midi = MIDIFile(1)
+            midi.addTempo(0, 0, 120)
 
-        # 📜 Lista de ejemplos predefinidos
-        ejemplos = ["C D E F G", "E E F G G F E D", "E E F# G G F# E D C C D E E D Bb"]
-        self.ejemplos_cb = ttk.Combobox(root, values=ejemplos, font=("Arial", 12), state="readonly")
-        self.ejemplos_cb.pack(pady=5)
-        self.ejemplos_cb.bind("<<ComboboxSelected>>", self.seleccionar_ejemplo)
+            tiempo = 0  # Tiempo inicial en beats
+            for nota in notas:
+                if nota in NOTE_MAPPING:
+                    midi.addNote(0, 0, NOTE_MAPPING[nota], tiempo, 1, 100)
+                    tiempo += 1
+                else:
+                    print(f"ERROR: Nota desconocida '{nota}', ignorada.")
 
-        # 🔘 Botón para generar MIDI
-        self.boton_generar = tk.Button(
-            root, text="🎼 Generar MIDI", font=("Arial", 14, "bold"),
-            bg="#98c379", fg="black", relief="flat", command=self.save_to_midi
-        )
-        self.boton_generar.pack(pady=10)
+            # Guardar el archivo MIDI
+            with open("melodia.mid", "wb") as output_file:
+                midi.writeFile(output_file)
+            
+            print("DEBUG: Archivo MIDI generado como 'melodia.mid'")
 
-        # 🗑 Botones para borrar notas
-        self.boton_borrar_ultima = tk.Button(
-            root, text="🗑 Borrar Última Nota", font=("Arial", 12),
-            bg="#e06c75", fg="black", relief="flat", command=self.borrar_ultima
-        )
-        self.boton_borrar_ultima.pack(pady=5)
+    def visitProgram(self, ctx: IcSParser.ProgramContext):
+        for stmt in ctx.statement():
+            self.visit(stmt)
 
-        self.boton_borrar_todo = tk.Button(
-            root, text="🚮 Borrar Todo", font=("Arial", 12),
-            bg="#be5046", fg="black", relief="flat", command=self.borrar_todo
-        )
-        self.boton_borrar_todo.pack(pady=5)
+    def visitPrintStatement(self, ctx: IcSParser.PrintStatementContext):
+        if ctx.printStmt().STRING():
+            print(ctx.printStmt().STRING().getText().strip('"'))
+        else:
+            print(self.visit(ctx.printStmt().expr()))
 
-    def create_virtual_keyboard(self):
-        """ Crea los botones del piano """
-        white_keys = [('C', 0), ('D', 1), ('E', 2), ('F', 3), ('G', 4), ('A', 5), ('B', 6)]
-        black_keys = [('C#', 0.7), ('D#', 1.7), ('F#', 3.7), ('G#', 4.7), ('A#', 5.7)]
+    def visitReadStatement(self, ctx: IcSParser.ReadStatementContext):
+        var_name = ctx.readStmt().ID().getText()
+        user_input = input().strip()  
+        try:
+            self.variables[var_name] = int(user_input)  
+        except ValueError:
+            print(f"Error: '{user_input}' no es un número válido.")
+            exit(1)
 
-        # Botones para las teclas blancas
-        for note, col in white_keys:
-            btn = tk.Button(
-                self.root, text=note, font=("Arial", 14), width=5, height=2, bg="white", fg="black",
-                command=lambda n=note: self.add_note(n)
-            )
-            btn.place(x=50 + col * 55, y=200)
+    def visitAssignmentStatement(self, ctx: IcSParser.AssignmentStatementContext):
+        var_name = ctx.assignStmt().ID().getText()
+        value = self.visit(ctx.assignStmt().expr())
+        self.variables[var_name] = value
 
-        # Botones para las teclas negras
-        for note, col in black_keys:
-            btn = tk.Button(
-                self.root, text=note, font=("Arial", 12), width=3, height=2, bg="black", fg="white",
-                command=lambda n=note: self.add_note(n)
-            )
-            btn.place(x=80 + col * 55, y=170)
+        # 🔴 Debug: Mostrar el valor de la variable asignada
+        print(f"DEBUG: {var_name} = {value}")
 
-    def add_note(self, note):
-        """ Agrega una nota desde el teclado virtual """
-        current_text = self.note_display.get()
-        self.note_display.config(state="normal")  # Habilita la edición
-        self.note_display.delete(0, tk.END)
-        self.note_display.insert(0, (current_text + " " + note).strip())
-        self.note_display.config(state="disabled")  # Vuelve a deshabilitar
 
-    def borrar_ultima(self):
-        """ Borra la última nota agregada """
-        current_text = self.note_display.get().strip().split()
-        if current_text:
-            current_text.pop()  # Elimina la última nota
-            self.note_display.config(state="normal")
-            self.note_display.delete(0, tk.END)
-            self.note_display.insert(0, " ".join(current_text))
-            self.note_display.config(state="disabled")
+    def visitNumberExpr(self, ctx: IcSParser.NumberExprContext):
+        return int(ctx.NUMBER().getText())
 
-    def borrar_todo(self):
-        """ Borra todas las notas del campo """
-        self.note_display.config(state="normal")
-        self.note_display.delete(0, tk.END)
-        self.note_display.config(state="disabled")
+    def visitVariableExpr(self, ctx: IcSParser.VariableExprContext):
+        var_name = ctx.ID().getText()
+        return self.variables.get(var_name, 0)
 
-    def seleccionar_ejemplo(self, event):
-        """ Cambia las notas a un ejemplo seleccionado """
-        self.note_display.config(state="normal")
-        self.note_display.delete(0, tk.END)
-        self.note_display.insert(0, self.ejemplos_cb.get())
-        self.note_display.config(state="disabled")
+    def visitArithmeticExpr(self, ctx: IcSParser.ArithmeticExprContext):
+        left = self.visit(ctx.expr(0))
+        right = self.visit(ctx.expr(1))
+        op = ctx.getChild(1).getText()
+        if op == '+': return left + right
+        if op == '-': return left - right
+        if op == '*': return left * right
+        if op == '/': return left / right if right != 0 else 0
 
-    def save_to_midi(self):
-        """ Genera y guarda un archivo MIDI con las notas ingresadas """
-        notas = self.note_display.get().strip().split()
-        if not notas:
-            messagebox.showwarning("⚠️ Advertencia", "No hay notas seleccionadas.")
-            return
+    def visitRelationalExpr(self, ctx: IcSParser.RelationalExprContext):
+        left = self.visit(ctx.expr(0))
+        right = self.visit(ctx.expr(1))
+        op = ctx.getChild(1).getText()
+        if op == '>': return left > right
+        if op == '<': return left < right
+        if op == '>=': return left >= right
+        if op == '<=': return left <= right
+        if op == '==': return left == right
+        if op == '!=': return left != right
+        return False
 
-        # 🎶 Crear el archivo MIDI
-        midi = MIDIFile(1)
-        midi.addTempo(0, 0, 120)  # BPM
-        time = 0
+    def visitIfStmt(self, ctx: IcSParser.IfStmtContext):
+        condition = self.visit(ctx.expr())  
+        print(f"DEBUG: Evaluando If con condición: {condition}")  
 
-        for nota in notas:
-            if nota in NOTE_MAPPING:
-                note_value = NOTE_MAPPING[nota]
-                midi.addNote(0, 0, note_value, time, 1, 100)
-                time += 1  # Avanza el tiempo
+        if condition:
+            for stmt in ctx.statement():  # Ejecuta el bloque del 'if'
+                self.visit(stmt)
+        elif ctx.elseStmt():  # Verificar si hay un bloque else
+            print("DEBUG: Ejecutando bloque ELSE")  
+            for stmt in ctx.elseStmt().statement():
+                self.visit(stmt)
 
-        with open("melodia.mid", "wb") as output_file:
-            midi.writeFile(output_file)
 
-        # 🔔 Sonido de confirmación
-        winsound.Beep(1000, 300)
-        messagebox.showinfo("Éxito", "🎵 ¡Archivo MIDI generado con éxito!")
 
-# 🔵 Ejecutar la aplicación
+
+
+    def visitWhileStmt(self, ctx: IcSParser.WhileStmtContext):
+        while self.visit(ctx.expr()):
+            for stmt in ctx.statement():
+                self.visit(stmt)
+
+    
+
+def ejecutar_codigo(archivo):
+    try:
+        with open(archivo, "r", encoding="utf-8") as f:
+            codigo = f.read().strip()
+
+        input_stream = InputStream(codigo)
+        lexer = IcSLexer(input_stream)
+        stream = CommonTokenStream(lexer)
+        parser = IcSParser(stream)
+        tree = parser.program()
+
+        visitor = IcSInterpreter()
+        visitor.visit(tree)
+
+    except FileNotFoundError:
+        print(f"Error: No se encontró el archivo '{archivo}'")
+    except Exception as e:
+        print(f"Error durante la ejecución: {e}")
+
 if __name__ == "__main__":
-    root = tk.Tk()
-    app = VirtualPianoApp(root)
-    root.mainloop()
+    if len(sys.argv) < 2:
+        print("Uso: python ejecutar.py archivo.ics")
+    else:
+        ejecutar_codigo(sys.argv[1])
