@@ -10,7 +10,7 @@ Main {
 
     If c > 10 ::
         <w> "La suma es mayor que 10";
-        [:] { C C C C };
+        [:] { D D E F G A B C# D# F# G# A# };
     else ::
         <w> "La suma es 10 o menor";
         [:] { D D D D };  

@@ -1,4 +1,3 @@
-// Definimos la gramática para el lenguaje IcS
 grammar IcS;
 
 // Reglas principales
@@ -37,9 +36,9 @@ elseStmt: 'else' '::' statement*;
 whileStmt: 'While' expr '::' statement*;
 
 // Tokens básicos
-ID: [a-zA-Z_][a-zA-Z_0-9]*;
+ID: [a-zA-Z_][a-zA-Z_0-9]* ('#')?;  // ID puede terminar con #
 NUMBER: [0-9]+;
 STRING: '"' .*? '"';
-SEMICOLON: ';';  // Definiendo ';' como token
+SEMICOLON: ';';
 WS: [ \t\r\n]+ -> skip;
 COMMENT: '***' .*? '\n' -> skip;

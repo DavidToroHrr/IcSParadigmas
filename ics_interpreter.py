@@ -55,7 +55,7 @@ class IcSInterpreter(IcSVisitor):
             self.variables[var_name] = int(user_input)  
         except ValueError:
             print(f"Error: '{user_input}' no es un número válido.")
-            exit(1)
+            self.variables[var_name] = 0  # Asignar un valor por defecto
 
     def visitAssignmentStatement(self, ctx: IcSParser.AssignmentStatementContext):
         var_name = ctx.assignStmt().ID().getText()
@@ -80,7 +80,10 @@ class IcSInterpreter(IcSVisitor):
         if op == '+': return left + right
         if op == '-': return left - right
         if op == '*': return left * right
-        if op == '/': return left / right if right != 0 else 0
+        if op == '/':
+            if right == 0:
+                raise ValueError("División por cero")
+            return left / right
 
     def visitRelationalExpr(self, ctx: IcSParser.RelationalExprContext):
         left = self.visit(ctx.expr(0))
