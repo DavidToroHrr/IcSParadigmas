@@ -17,9 +17,13 @@ Main {
         <w> "La suma es mayor que 10";
         [:] { D D E F G A B C# D# F# G# A# A };
     else ::
-        <w> "La suma es 10 o menor";
+        <w> "La suma es 10 o menor";+
         [:] { D D D D }; 
         While contador <= 5 ::
             <w> contador;
+            If contador <= 5 ::
+                <w> "Dentro del conatador";
+                <w> contador;
+
             contador := contador + 1;
 }
